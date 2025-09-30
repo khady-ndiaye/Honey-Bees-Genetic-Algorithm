@@ -1,10 +1,16 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 from beehive import Beehive
+import pandas
 
 # Exemple de données (à remplacer par ton vrai champ de fleurs)
-flowers = [(100,200), (150,800), (400,600), (700,300), (850,900)]
-hive_position = (500,500)
+def load_flowers_from_csv(csv_path):
+    """Charge les coordonnées des fleurs depuis un CSV."""
+    df = pd.read_csv(csv_path)
+    #récuperes les coordonnées x et y
+    flowers = list(zip(df['x'], df['y']))
+    return flowers
+
 
 def plot_best_path(best_bee, hive_position):
     x = [hive_position[0]] + [f[0] for f in best_bee.path] + [hive_position[0]]
@@ -52,6 +58,8 @@ def compare_parameters(flowers, hive_position):
     plt.show()
 
 if __name__ == "__main__":
+    flowers = load_flowers_from_csv("C:/Users/ndiay/OneDrive/Desktop/miel_abeille/venv/Champ_fleurs.csv")
+    hive_position = (500, 500)
     hive = Beehive(flowers, hive_position, mutation_rate=0.05, generations=50)
     best_bee = hive.evolve()
 
