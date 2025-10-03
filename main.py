@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
-import random, numpy as np
-random.seed(42)
-np.random.seed(42)
+
 
 from beehive import Beehive
 
