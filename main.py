@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
-
-
-from beehive import Beehive
+from beehive2 import Beehive
 
 def load_flowers_from_csv(csv_path):
     """Charge les coordonnées des fleurs depuis un CSV."""
@@ -67,6 +65,44 @@ def plot_best_path(best_bee, hive_position):
     plt.show()
 
 
+def visualize_genealogy(beehive, figsize=(12, 8), save_as=None):
+    """
+    Affiche la généalogie des abeilles à partir de beehive.genealogy.
+    """
+    G = nx.DiGraph()
+    
+    for child_id, (parents, gen) in beehive.genealogy.items():
+        G.add_node(child_id, generation=gen)
+        if parents:
+            for p in parents:
+                if p is not None:
+                    G.add_edge(p, child_id)
+        elif child_id != "Queen":
+            G.add_edge("Queen", child_id)
+    
+    pos = nx.multipartite_layout(G, subset_key="generation")
+    
+    plt.figure(figsize=figsize)
+    nx.draw(
+        G,
+        pos,
+        with_labels=True,
+        node_size=600,
+        node_color="skyblue",
+        font_size=8,
+        font_weight="bold",
+        edge_color="gray",
+        arrows=True,
+        alpha=0.9,
+    )
+    
+    plt.title(" Généalogie de la colonie", fontsize=14, fontweight="bold")
+    plt.tight_layout()
+    
+    if save_as:
+        plt.savefig(save_as, dpi=300)
+        print(f" Généalogie sauvegardée dans {save_as}")
+    plt.show()
 
 
 def plot_history(beehive):
@@ -79,86 +115,6 @@ def plot_history(beehive):
     plt.legend()
     plt.show()
 
-def plot_genealogy_filtered(hive, best_bee, first_gens=10, last_gens=2):
-    import networkx as nx
-    import matplotlib.pyplot as plt
-
-    G = nx.DiGraph()
-
-    # Génération du best bee
-    best_gen = hive.genealogy.get(best_bee.id, (None, None))[1]
-    if best_gen is None:
-        print("Impossible de déterminer la génération du best_bee.")
-        return
-
-    # Bornes de génération à garder
-    min_gen = 0
-    max_first = first_gens - 1
-    min_last = best_gen - (last_gens - 1)
-    keep_ranges = set(range(min_gen, max_first + 1)) | set(range(min_last, best_gen + 1))
-
-    # Ajouter uniquement les noeuds des générations gardées
-    for node, (parents, gen) in hive.genealogy.items():
-        if gen in keep_ranges:
-            G.add_node(node)
-            if parents:
-                for p in parents:
-                    if p is not None:
-                        parent_gen = hive.genealogy.get(p, (None, None))[1]
-                        if parent_gen in keep_ranges:
-                            G.add_edge(p, node)
-
-    # Générations
-    generations = {node: hive.genealogy.get(node, (None, None))[1] for node in G.nodes()}
-
-    # Normalisation verticale
-    gens_sorted = sorted(list(keep_ranges))
-    gen_to_y = {}
-    for i, g in enumerate(gens_sorted):
-        if g <= max_first:
-            gen_to_y[g] = i
-        elif g >= min_last:
-            gen_to_y[g] = max_first + (g - min_last + 1)
-
-    # Placement des nœuds
-    layers = {}
-    for node, gen in generations.items():
-        if gen in gen_to_y:
-            layers.setdefault(gen_to_y[gen], []).append(node)
-
-    pos = {}
-    for rank, nodes in layers.items():
-        for i, node in enumerate(nodes):
-            pos[node] = (i, -rank)
-
-    # Couleurs
-    cmap = plt.cm.get_cmap("tab20", 20)
-    colors = []
-    for node in G.nodes():
-        if node == hive.queen.id or node == best_bee.id:
-            colors.append("gold")
-        else:
-            gen = generations.get(node, -1)
-            colors.append(cmap(gen_to_y.get(gen, 0) % 20))
-
-    # --- Dessin
-    plt.figure(figsize=(16, 10))
-    nx.draw_networkx_nodes(G, pos, node_color=colors, node_size=1000)
-    nx.draw_networkx_edges(G, pos, arrowsize=12, width=2.5)
-
-    # Labels plus lisibles
-   # Labels plus courts : derniers 4 caractères
-    labels = {node: str(node)[-4:] if node not in (hive.queen.id, best_bee.id) else "Q" if node == hive.queen.id else "BEST"
-            for node in G.nodes()}
-
-    nx.draw_networkx_labels(G, pos, labels=labels,
-                        font_size=8, font_color="black")
-
-    plt.title(f"Généalogie (10 premières générations + {last_gens} dernières)", fontsize=14)
-    plt.axis("off")
-    plt.show()
-
-
 def compare_parameters(flowers, hive_position):
     configs = [
         {"mutation_rate": 0.01, "label": "mutation=0.01"},
@@ -167,10 +123,10 @@ def compare_parameters(flowers, hive_position):
     ]
     plt.figure()
     for cfg in configs:
-        hive = Beehive(flowers, hive_position, population_size=101,
+        beehive = Beehive(flowers, hive_position, population_size=101,
                        mutation_rate=cfg["mutation_rate"], generations=30)
-        hive.evolve()
-        plt.plot(hive.history, label=cfg["label"])
+        beehive.evolve()
+        plt.plot(beehive.history, label=cfg["label"])
     plt.xlabel("Générations")
     plt.ylabel("Temps moyen")
     plt.title("Comparaison des paramétrages (mutation rate)")
@@ -224,23 +180,24 @@ def compare_crossover_methods(flowers, hive_position):
     ]
     plt.figure()
     for m in methods:
-        hive = Beehive(flowers, hive_position, population_size=101,
+        beehive = Beehive(flowers, hive_position, population_size=101,
                        generations=30, crossover_method=m.get("crossover_method","ox"),
                        mutation_rate=0.05)
-        hive.evolve()
-        plt.plot(hive.best_history, label=m["label"])
+        beehive.evolve()
+        plt.plot(beehive.best_history, label=m["label"])
     plt.xlabel("Generations")
     plt.ylabel("Best Distance")
     plt.title("Comparison of crossover methods")
     plt.legend()
     plt.show()
 if __name__ == "__main__":
-    hive = Beehive(flowers, hive_position, population_size=101, mutation_rate=0.05, generations=50)
-    best_bee = hive.evolve()
+    beehive = Beehive(flowers, hive_position, population_size=101, mutation_rate=0.05, generations=50)
+    best_bee = beehive.evolve()
 
     plot_best_path(best_bee, hive_position)
-    plot_history(hive)
-    plot_genealogy_filtered(hive, best_bee, first_gens=10, last_gens=2)
+    plot_history(beehive)
+    #visualize_genealogy(beehive, figsize=(12, 8), save_as="genealogy.png")
+   
     compare_parameters(flowers, hive_position)
     compare_fitness_metrics(flowers, hive_position)
     compare_reproduction_methods(flowers, hive_position)
